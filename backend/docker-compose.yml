@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: wamigos
+      POSTGRES_USER: wamigos
+      POSTGRES_PASSWORD: wamigos
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wamigos -d wamigos"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - wamigos-postgres:/var/lib/postgresql/data
+
+volumes:
+  wamigos-postgres:

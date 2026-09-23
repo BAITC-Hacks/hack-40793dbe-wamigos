@@ -49,3 +49,12 @@ Changed:
 
 Reason:
 - Make the text analysis slice work with a real local model before speech integration, preserve traceable evidence, and avoid claiming verified identity or dates prematurely.
+
+## 2026-09-23 15:15
+
+Changed:
+- Added the complete Java 21/Spring Boot meeting-processing backend in `backend/`: PostgreSQL/Flyway persistence, private storage, protected job access, DB-backed worker lifecycle, deterministic mock analysis, PDF/DOCX export, cleanup/timeout handling, OpenAPI, integration tests, Docker configuration, and run documentation.
+- Added row locking for timeout transitions and compensation coverage for files saved before a failed database job creation.
+
+Reason:
+- Implement the released HackAlem backend specification as a reliable end-to-end Java-only MVP that is ready for the later real Python adapter integration.
