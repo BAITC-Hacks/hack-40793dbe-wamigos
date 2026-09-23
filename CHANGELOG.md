@@ -66,3 +66,11 @@ Changed:
 
 Reason:
 - Establish the frontend data flow before connecting the screens; this checkpoint does not yet contain the complete application.
+
+## 2026-09-23 15:32
+
+Changed:
+- Added home, recent-meetings and protocol routes, screenshot-based responsive styles, recording and upload dialogs, status rendering and export controls.
+
+Reason:
+- Connect the frontend data flow to the complete meeting workflow for browser verification.
