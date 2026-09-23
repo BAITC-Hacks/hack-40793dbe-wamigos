@@ -1,4 +1,13 @@
 # Changelog
+## 2026-09-23 17:24
+
+Changed:
+- Made CPU execution the default for the complete Docker Compose stack and added an optional NVIDIA GPU override.
+- Simplified the jury README to one cross-platform startup command, prerequisites, and a short verification flow.
+
+Reason:
+- Let reviewers start and check local audio processing without a GPU or separate Ollama installation.
+
 ## 2026-09-23 13:42
 
 Changed:
