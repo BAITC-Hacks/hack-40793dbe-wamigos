@@ -123,3 +123,11 @@ Changed:
 
 Reason:
 - Complete the Java side of the Python AI integration without buffering large media files or retaining a runtime fallback that could hide unavailable AI processing.
+
+## 2026-09-23 17:50
+
+Changed:
+- Added five application screenshots to the root README: home, queue, processing, completed protocol and detailed tasks/problems.
+
+Reason:
+- Let judges preview the meeting workflow directly in the repository.

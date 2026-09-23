@@ -26,6 +26,28 @@ docker compose -f compose.yaml -f compose.gpu.yaml up --build --wait
 
 Если порт занят, создайте `.env` по [образцу](.env.example): для 3000 поменяйте `FRONTEND_PORT` и `FRONTEND_ORIGIN`, для 8081 — `BACKEND_PORT` и `API_PUBLIC_URL`, для 8000 — `AI_PORT`. Затем повторите запуск. Если что-то не стартовало, посмотрите `docker compose ps` и `docker compose logs --tail=100`. Остановить сервисы: `docker compose down` (данные сохраняются).
 
+## Скриншоты
+
+Главная: загрузка файла, запись с микрофона и последние встречи.
+
+![Главная страница](docs/screenshots/home.jpg)
+
+Запись в очереди.
+
+![Ожидание обработки](docs/screenshots/queued.jpg)
+
+Распознавание речи и подготовка протокола.
+
+![Обработка записи](docs/screenshots/processing.jpg)
+
+Готовый протокол: итоги встречи, расшифровка и экспорт PDF/Word.
+
+![Готовый протокол](docs/screenshots/protocol.jpg)
+
+Поручения с исполнителями и сроками, а также озвученные проблемы.
+
+![Расшифровка, поручения и проблемы](docs/screenshots/protocol-details.jpg)
+
 ## Что внутри
 
 Next.js → Java 21 / Spring Boot → PostgreSQL и Python / FastAPI → локальные faster-whisper, SpeechBrain ECAPA и Ollama / Qwen. Обработка идёт в контейнерах на компьютере проверяющего; готовый публичный сервер для проверки не требуется.
