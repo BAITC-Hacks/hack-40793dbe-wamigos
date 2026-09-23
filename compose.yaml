@@ -1,0 +1,55 @@
+name: hackalem-protokol
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wamigos}
+      POSTGRES_USER: ${POSTGRES_USER:-wamigos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wamigos-local}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  backend:
+    build: ./backend
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-wamigos}
+      DB_USERNAME: ${POSTGRES_USER:-wamigos}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-wamigos-local}
+      APP_FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      APP_AI_MODE: mock
+    ports:
+      - '127.0.0.1:${BACKEND_PORT:-8081}:8080'
+    volumes:
+      - meeting-files:/data/meetings
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://localhost:8080/actuator/health]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${API_PUBLIC_URL:-http://localhost:8081}
+    ports:
+      - '127.0.0.1:${FRONTEND_PORT:-3000}:3000'
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:3000").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+volumes:
+  postgres-data:
+  meeting-files:

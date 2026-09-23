@@ -93,3 +93,13 @@ Changed:
 
 Reason:
 - Integrate directly with the running Java backend while its separate AI adapter remains under development.
+
+## 2026-09-23 16:01
+
+Changed:
+- Added a root Docker Compose launch for frontend, Java backend, and PostgreSQL with health checks and persistent storage.
+- Added standalone frontend and multi-stage Java image builds, environment examples, and build-context exclusions.
+- Reworked the root README around the product problem, technologies, one-command jury startup, verification steps, and explicit remaining backend AI mock limitations.
+
+Reason:
+- Let judges independently launch and verify the current application without installing language runtimes or mistaking demonstration AI output for real speech recognition.

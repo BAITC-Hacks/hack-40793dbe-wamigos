@@ -4,6 +4,8 @@ Next.js 16, React 19, TypeScript. Node.js 22 recommended.
 
 ## Run
 
+For the complete application with Java and PostgreSQL, follow the [root README](../README.md). The commands below are for local frontend development.
+
 ```sh
 cd frontend
 npm ci
