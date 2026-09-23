@@ -21,7 +21,6 @@ services:
       OLLAMA_NUM_PARALLEL: '1'
       OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-16384}
       OLLAMA_KEEP_ALIVE: '0'
-    gpus: all
     volumes:
       - ollama-data:/root/.ollama
     healthcheck:
@@ -50,16 +49,15 @@ services:
       LOCAL_LLM_MAX_TOKENS: ${LOCAL_LLM_MAX_TOKENS:-4096}
       LOCAL_LLM_MAX_INPUT_CHARS: ${LOCAL_LLM_MAX_INPUT_CHARS:-20000}
       ASR_MODEL: ${ASR_MODEL:-large-v3}
-      ASR_DEVICE: ${ASR_DEVICE:-cuda}
-      ASR_COMPUTE_TYPE: ${ASR_COMPUTE_TYPE:-float16}
+      ASR_DEVICE: ${ASR_DEVICE:-cpu}
+      ASR_COMPUTE_TYPE: ${ASR_COMPUTE_TYPE:-int8}
       DIARIZATION_MODEL: ${DIARIZATION_MODEL:-speechbrain/spkrec-ecapa-voxceleb}
-      DIARIZATION_DEVICE: ${DIARIZATION_DEVICE:-cuda}
+      DIARIZATION_DEVICE: ${DIARIZATION_DEVICE:-cpu}
       DIARIZATION_SIMILARITY_THRESHOLD: ${DIARIZATION_SIMILARITY_THRESHOLD:-0.55}
       DIARIZATION_MAX_SPEAKERS: ${DIARIZATION_MAX_SPEAKERS:-8}
       HF_HOME: /models/huggingface
       HF_HUB_DISABLE_XET: '1'
       SPEECH_RELEASE_MODELS_AFTER_RUN: ${SPEECH_RELEASE_MODELS_AFTER_RUN:-true}
-    gpus: all
     ports:
       - '127.0.0.1:${AI_PORT:-8000}:8000'
     volumes:
