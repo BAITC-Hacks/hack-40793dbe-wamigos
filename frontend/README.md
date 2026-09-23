@@ -44,7 +44,7 @@ real history. A real API error never enables demo mode.
 
 Actual audio acceptance, queue progress, real results, expiry and PDF/DOCX content require
 a running Java backend. Verify the backend's exact problem codes during integration;
-unknown codes fall back to a safe HTTP-status message. `FAILED` is read from the JSON body,
+codes are aligned with `backend/.../error/ErrorCode.java`; unknown codes fall back to a safe HTTP-status message. `FAILED` is read from the JSON body,
 including when HTTP status is 200. Lost POST responses require a manual retry because
 the server may already have accepted the file.
 
