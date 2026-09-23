@@ -1,5 +1,4 @@
 # Changelog
-
 ## 2026-09-23 13:42
 
 Changed:
@@ -58,3 +57,20 @@ Changed:
 
 Reason:
 - Implement the released HackAlem backend specification as a reliable end-to-end Java-only MVP that is ready for the later real Python adapter integration.
+
+## 2026-09-23 15:25
+
+Changed:
+- Added the frontend package, Java API DTOs, upload and export transport, browser history, polling, microphone lifecycle, and explicit demo transport.
+- Recorded the frontend design based on the three approved screenshots.
+
+Reason:
+- Establish the frontend data flow before connecting the screens; this checkpoint does not yet contain the complete application.
+
+## 2026-09-23 15:32
+
+Changed:
+- Added home, recent-meetings and protocol routes, screenshot-based responsive styles, recording and upload dialogs, status rendering and export controls.
+
+Reason:
+- Connect the frontend data flow to the complete meeting workflow for browser verification.
