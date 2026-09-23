@@ -25,6 +25,23 @@ class Settings(BaseSettings):
     local_llm_max_input_chars: int = Field(
         default=20000, gt=0, alias="LOCAL_LLM_MAX_INPUT_CHARS"
     )
+    ffmpeg_path: str = Field(default="ffmpeg", alias="FFMPEG_PATH")
+    ffprobe_path: str = Field(default="ffprobe", alias="FFPROBE_PATH")
+    asr_model: str = Field(default="large-v3", alias="ASR_MODEL")
+    asr_device: str = Field(default="cuda", alias="ASR_DEVICE")
+    asr_compute_type: str = Field(default="float16", alias="ASR_COMPUTE_TYPE")
+    diarization_model: str = Field(
+        default="pyannote/speaker-diarization-community-1",
+        alias="DIARIZATION_MODEL",
+    )
+    diarization_model_path: str | None = Field(
+        default=None, alias="DIARIZATION_MODEL_PATH"
+    )
+    diarization_device: str = Field(default="cuda", alias="DIARIZATION_DEVICE")
+    hf_token: str | None = Field(default=None, alias="HF_TOKEN")
+    speech_release_models_after_run: bool = Field(
+        default=True, alias="SPEECH_RELEASE_MODELS_AFTER_RUN"
+    )
 
 
 @lru_cache

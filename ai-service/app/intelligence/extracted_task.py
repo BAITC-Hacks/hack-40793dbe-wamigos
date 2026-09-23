@@ -4,7 +4,10 @@ from app.schemas import Task
 
 
 class ExtractedTask(Task):
-    assigner_name: None = None
+    evidence_quotes: list[str] = Field(
+        min_length=1,
+        description="Exact short quotes copied from the transcript that support this task.",
+    )
     deadline_raw: str | None = Field(
         description=(
             "Copy the exact deadline phrase from the source in its original language. "

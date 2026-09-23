@@ -1,13 +1,13 @@
 from pydantic import model_validator
 
-from app.intelligence.extracted_problem import ExtractedProblem
 from app.intelligence.extracted_task import ExtractedTask
+from app.intelligence.problem_candidate import ProblemCandidate
 from app.schemas import ApiModel
 
 
 class MeetingFacts(ApiModel):
     tasks: list[ExtractedTask]
-    problems: list[ExtractedProblem]
+    problems: list[ProblemCandidate]
 
     @model_validator(mode="after")
     def reject_repeated_actions(self) -> "MeetingFacts":
