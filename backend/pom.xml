@@ -26,6 +26,7 @@
         <pdfbox.version>3.0.8</pdfbox.version>
         <easytable.version>1.0.2</easytable.version>
         <embedded-postgres.version>2.2.2</embedded-postgres.version>
+        <mockwebserver.version>4.12.0</mockwebserver.version>
     </properties>
 
     <dependencies>
@@ -121,6 +122,12 @@
             <groupId>io.zonky.test</groupId>
             <artifactId>embedded-postgres</artifactId>
             <version>${embedded-postgres.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>${mockwebserver.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

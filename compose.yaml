@@ -20,7 +20,10 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-wamigos}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-wamigos-local}
       APP_FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
-      APP_AI_MODE: mock
+      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:8000}
+      AI_CONNECT_TIMEOUT: ${AI_CONNECT_TIMEOUT:-5s}
+      AI_RESPONSE_TIMEOUT: ${AI_RESPONSE_TIMEOUT:-25m}
+      AI_HEALTH_TIMEOUT: ${AI_HEALTH_TIMEOUT:-3s}
     ports:
       - '127.0.0.1:${BACKEND_PORT:-8081}:8080'
     volumes:
@@ -28,8 +31,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     healthcheck:
-      test: [CMD, curl, --fail, --silent, http://localhost:8080/actuator/health]
+      test: [CMD, curl, --fail, --silent, http://localhost:8080/v3/api-docs]
       interval: 5s
       timeout: 3s
       retries: 30

@@ -10,31 +10,41 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import kz.hackalem.wamigos.PostgresIntegrationTest;
+import kz.hackalem.wamigos.TestMediaFixtures;
+import kz.hackalem.wamigos.analysis.AiTestResponses;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.mock.web.MockMultipartFile;
 
 @SpringBootTest(properties = {
-        "app.queue.poll-interval=PT0.05S",
-        "app.ai.mock-delay=PT0.15S"
+        "app.queue.poll-interval=PT0.05S"
 })
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class MeetingApiIntegrationTest extends PostgresIntegrationTest {
+
+    private static final MockWebServer AI_SERVER = startAiServer();
 
     @Autowired
     private MockMvc mockMvc;
@@ -42,8 +52,22 @@ class MeetingApiIntegrationTest extends PostgresIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @DynamicPropertySource
+    static void registerAiProperties(DynamicPropertyRegistry registry) {
+        registry.add("app.ai.base-url", () -> AI_SERVER.url("/").toString());
+        registry.add("app.ai.connect-timeout", () -> "PT1S");
+        registry.add("app.ai.response-timeout", () -> "PT2S");
+        registry.add("app.ai.health-timeout", () -> "PT0.2S");
+    }
+
+    @AfterAll
+    static void stopAiServer() throws IOException {
+        AI_SERVER.shutdown();
+    }
+
     @Test
     void completesProtectedHappyPathAndExportsBothFormats() throws Exception {
+        AI_SERVER.enqueue(jsonResponse(200, AiTestResponses.valid()));
         JsonNode created = createMeeting("Совещание Ә Ғ Қ Ң Ө Ұ Ү Һ І");
         String id = created.get("id").asText();
         String token = created.get("accessToken").asText();
@@ -109,11 +133,21 @@ class MeetingApiIntegrationTest extends PostgresIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
 
-        mockMvc.perform(multipart("/api/v1/meetings")
+        AI_SERVER.enqueue(jsonResponse(200, AiTestResponses.valid()));
+        JsonNode created = objectMapper.readTree(mockMvc.perform(multipart("/api/v1/meetings")
                         .file(mp4File())
                         .param("source", "UPLOAD"))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.status").value("QUEUED"));
+                .andExpect(jsonPath("$.status").value("QUEUED"))
+                .andReturn()
+                .getResponse()
+                .getContentAsByteArray());
+        JsonNode completed = waitForTerminal(
+                created.get("id").asText(),
+                created.get("accessToken").asText(),
+                Duration.ofSeconds(10)
+        );
+        assertThat(completed.get("status").asText()).isEqualTo("COMPLETED");
     }
 
     private JsonNode createMeeting(String title) throws Exception {
@@ -121,7 +155,7 @@ class MeetingApiIntegrationTest extends PostgresIntegrationTest {
                 "file",
                 "meeting.mp3",
                 "audio/mpeg",
-                mp3Bytes()
+                TestMediaFixtures.mp3()
         );
         MvcResult result = mockMvc.perform(multipart("/api/v1/meetings")
                         .file(file)
@@ -154,17 +188,6 @@ class MeetingApiIntegrationTest extends PostgresIntegrationTest {
         throw new AssertionError("Meeting did not reach a terminal state");
     }
 
-    private byte[] mp3Bytes() {
-        byte[] bytes = new byte[1_024];
-        bytes[0] = 'I';
-        bytes[1] = 'D';
-        bytes[2] = '3';
-        bytes[3] = 4;
-        bytes[10] = (byte) 0xff;
-        bytes[11] = (byte) 0xfb;
-        return bytes;
-    }
-
     private MockMultipartFile mp4File() {
         byte[] bytes = new byte[32];
         bytes[3] = 24;
@@ -185,5 +208,22 @@ class MeetingApiIntegrationTest extends PostgresIntegrationTest {
         bytes[22] = '4';
         bytes[23] = '2';
         return new MockMultipartFile("file", "meeting.mp4", "video/mp4", bytes);
+    }
+
+    private static MockWebServer startAiServer() {
+        MockWebServer server = new MockWebServer();
+        try {
+            server.start();
+            return server;
+        } catch (IOException exception) {
+            throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private MockResponse jsonResponse(int status, String body) {
+        return new MockResponse()
+                .setResponseCode(status)
+                .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .setBody(body);
     }
 }

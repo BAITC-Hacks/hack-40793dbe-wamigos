@@ -55,9 +55,10 @@ app:
     retention: ${APP_RETENTION:PT24H}
     interval: ${APP_CLEANUP_INTERVAL:PT10M}
   ai:
-    mode: ${APP_AI_MODE:mock}
-    mock-delay: ${APP_AI_MOCK_DELAY:PT0.2S}
-    mock-force-failure: ${APP_AI_MOCK_FORCE_FAILURE:false}
+    base-url: ${AI_BASE_URL:http://localhost:8000}
+    connect-timeout: ${AI_CONNECT_TIMEOUT:5s}
+    response-timeout: ${AI_RESPONSE_TIMEOUT:25m}
+    health-timeout: ${AI_HEALTH_TIMEOUT:3s}
   cors:
     allowed-origin: ${APP_FRONTEND_ORIGIN:http://localhost:3000}
   export:

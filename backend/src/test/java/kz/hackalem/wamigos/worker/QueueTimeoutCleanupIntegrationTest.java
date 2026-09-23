@@ -77,7 +77,7 @@ class QueueTimeoutCleanupIntegrationTest extends PostgresIntegrationTest {
                 .orElseThrow();
         assertThat(claimed.id()).isEqualTo(id);
         assertThat(meetingJobService.claimNextQueued(Instant.now())).isEmpty();
-        Path sourcePath = storagePort.resolve(claimed.sourcePath());
+        Path sourcePath = storagePort.load(claimed.sourcePath()).getFile().toPath();
         assertThat(sourcePath).exists();
 
         meetingMaintenanceWorker.failTimedOutJobs();

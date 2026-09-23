@@ -1,8 +1,8 @@
 # Wamigos Java backend
 
-Java 21 / Spring Boot backend для одноразовой обработки записи совещания. Backend принимает файл, сохраняет задание в PostgreSQL, обрабатывает его фоновым worker через `MeetingAnalysisPort`, возвращает результат по секретному токену и формирует PDF/DOCX.
+Java 21 / Spring Boot backend для одноразовой обработки записи совещания. Backend принимает файл, сохраняет задание в PostgreSQL, передаёт его фоновым worker в Python AI service, возвращает результат по секретному токену и формирует PDF/DOCX.
 
-Текущий этап работает полностью автономно через детерминированный `MockMeetingAnalysisAdapter`. Он не отправляет аудио или транскрипт во внешние AI API и не реализует Python AI, ASR, диаризацию или LLM.
+Python вызывается синхронным `POST /internal/v1/analyze` с исходным media-файлом в multipart. В runtime нет mock-анализа, fallback и повторных попыток: недоступность или некорректный ответ AI service завершают конкретное задание с ошибкой, не мешая backend продолжать принимать запросы.
 
 ## Требования
 
@@ -11,6 +11,7 @@ Java 21 / Spring Boot backend для одноразовой обработки �
 - Java 21;
 - Maven 3.6.3+;
 - PostgreSQL;
+- Python AI service с контрактом `POST /internal/v1/analyze` и `GET /health`;
 - DejaVu Sans по пути `/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf` либо другой совместимый TTF через `APP_EXPORT_FONT_PATH`.
 
 ## Локальный запуск
@@ -35,7 +36,7 @@ mvn spring-boot:run
 mvn clean verify
 ```
 
-Интеграционные тесты запускают локальный embedded PostgreSQL и проверяют Flyway, очередь, mock happy path/failure, токены, timeout/cleanup и оба формата экспорта.
+Интеграционные тесты запускают локальные embedded PostgreSQL и MockWebServer. Они проверяют multipart-контракт Python, очередь, успешную обработку, media/HTTP/network/timeout/JSON/domain failures, токены, timeout/cleanup и оба формата экспорта.
 
 ## Основная конфигурация
 
@@ -57,9 +58,10 @@ mvn clean verify
 | `APP_STARTUP_RECOVERY_ENABLED` | `true` | Перевод незавершённых после рестарта jobs в `PROCESSING_INTERRUPTED` |
 | `APP_RETENTION` | `PT24H` | Хранение после `COMPLETED`/`FAILED` |
 | `APP_CLEANUP_INTERVAL` | `PT10M` | Интервал физической очистки |
-| `APP_AI_MODE` | `mock` | Активный адаптер анализа |
-| `APP_AI_MOCK_DELAY` | `PT0.2S` | Задержка deterministic mock |
-| `APP_AI_MOCK_FORCE_FAILURE` | `false` | Принудительный `AI_PROCESSING_FAILED` |
+| `AI_BASE_URL` | `http://localhost:8000` | Базовый URL Python AI service |
+| `AI_CONNECT_TIMEOUT` | `5s` | Таймаут соединения с Python |
+| `AI_RESPONSE_TIMEOUT` | `25m` | Таймаут полного анализа одной записи |
+| `AI_HEALTH_TIMEOUT` | `3s` | Отдельный короткий таймаут `GET /health` |
 | `APP_FRONTEND_ORIGIN` | `http://localhost:3000` | Единственный разрешённый CORS origin |
 | `APP_EXPORT_FONT_PATH` | путь DejaVu Sans | Встраиваемый PDF-шрифт с RU/KK символами |
 
@@ -122,7 +124,7 @@ curl -o meeting-protocol.docx \
 
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
-- Health: `http://localhost:8080/actuator/health`
+- Health: `http://localhost:8080/actuator/health`; компонент `aiService` отражает доступность Python через `GET /health`
 
 ## Хранилище и очередь
 
@@ -130,8 +132,18 @@ PostgreSQL — единственный источник состояния оч
 
 При ошибке создания DB job сохранённый файл компенсирующе удаляется. Cleanup сначала идемпотентно удаляет файл, затем строку БД. Активные задания не очищаются.
 
-## Подключение реального Python adapter
+## Интеграция с Python AI
 
-Следующий интеграционный этап должен добавить отдельную реализацию `MeetingAnalysisPort`, активируемую новым значением `APP_AI_MODE`. Внутренние Python request/response DTO маппятся в `MeetingAnalysisOutput`; публичный Java → Frontend контракт не изменяется. Python adapter обязан работать внутри закрытого контура и не должен молча переключаться на внешний cloud provider.
+Backend передаёт только:
+
+- `file` — исходный media-файл как потоковый multipart resource;
+- `startedAt` — ISO offset date-time, только если время было передано клиентом;
+- `timeZone` — именованная IANA-зона, только если она была передана клиентом.
+
+В Python не отправляются access token, внутренний job ID или другие backend-данные. Ответ Python преобразуется из внутренних transport DTO в публичный результат и проверяется на корректность временных интервалов, идентификаторов и ссылок на сегменты. Поле `diagnostics` остаётся внутренним и не попадает в API.
+
+Коды `MEDIA_NOT_DECODABLE`, `NO_AUDIO_TRACK` и `DURATION_LIMIT_EXCEEDED` из HTTP 422 сохраняются. HTTP 500/503, network/timeout, malformed JSON и некорректный доменный результат преобразуются в `AI_PROCESSING_FAILED`. Проверка health не выполняется перед каждым анализом и не блокирует запуск backend: при недоступном Python приложение стартует, health становится `DOWN`, а новые задания завершаются ошибкой обработки.
+
+Фактическая точность распознавания, диаризации и извлечения фактов зависит от реализации Python endpoint. Публичный Java → Frontend контракт при подключении не изменяется.
 
 Сторонние компоненты и лицензии перечислены в [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
