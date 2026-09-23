@@ -11,7 +11,6 @@ import type {
 export async function uploadMeeting(
   input: UploadInput,
 ): Promise<AcceptedMeeting> {
-  if (config.mock) return (await import("./mock")).uploadMock(input);
   const body = new FormData();
   body.set("file", input.file);
   body.set("source", input.source);
@@ -32,7 +31,6 @@ export async function getMeeting(
   link: MeetingLink,
   signal?: AbortSignal,
 ): Promise<Meeting> {
-  if (config.mock) return (await import("./mock")).getMock(link);
   const response = await fetch(
     `${config.apiBase}/api/v1/meetings/${encodeURIComponent(link.id)}`,
     {
@@ -48,7 +46,6 @@ export async function exportMeeting(
   link: MeetingLink,
   format: ExportFormat,
 ): Promise<Blob> {
-  if (config.mock) throw new ApiError(409, "MOCK_EXPORT_UNAVAILABLE");
   const response = await fetch(
     `${config.apiBase}/api/v1/meetings/${encodeURIComponent(link.id)}/export?format=${format}`,
     { headers: { Authorization: `Bearer ${link.accessToken}` } },

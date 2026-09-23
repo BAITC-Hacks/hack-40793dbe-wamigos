@@ -769,13 +769,6 @@ dt {
   display: block;
   font-size: 14px;
 }
-.demo-banner {
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 13px;
-  padding-bottom: 12px;
-  margin-bottom: 20px;
-}
 .modal {
   position: fixed;
   border: 2px solid var(--ink);

@@ -72,6 +72,8 @@ Do not hardcode secrets, API keys, environment-specific URLs, or configuration v
 
 ## AI functionality
 
+- Frontend must use only Java API responses and contain no mock transport or demo meeting data, because the team integrates against the actual backend even while its AI adapter is unfinished.
+
 AI must provide meaningful product functionality, not decorative integration. Use model calls, structured outputs, tool calling, agent workflows, context construction, retrieval, retries, and rate-limit handling only when the task needs them.
 
 Prefer structured outputs when application logic depends on model output. Keep AI integration centralized enough to understand and debug. Tool definitions need a clear purpose, minimal validated input, predictable output, and clear errors. Handle malformed responses and external failures practically.

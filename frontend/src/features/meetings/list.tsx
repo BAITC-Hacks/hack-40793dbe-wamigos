@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { config } from "@/lib/config";
 import { addedDate, duration } from "@/lib/format";
 import type { MeetingStatus } from "@/lib/types";
 import { Icon, Skeleton } from "@/components/icons";
@@ -23,13 +22,9 @@ export function Status({ status }: { status: MeetingStatus }) {
   );
 }
 export function MeetingList({ compact = false }: { compact?: boolean }) {
-  const { links, meetings, errors, loaded, refresh, add } = useMeetings();
+  const { links, meetings, errors, loaded, refresh } = useMeetings();
   useMeetingPolling(links.map((link) => link.id));
   const shown = compact ? links.slice(0, 2) : links;
-  async function seed() {
-    const { demoLinks } = await import("@/lib/mock");
-    demoLinks().reverse().forEach(add);
-  }
   if (!loaded)
     return (
       <div className="meeting-table">
@@ -50,11 +45,6 @@ export function MeetingList({ compact = false }: { compact?: boolean }) {
         <div>
           <h3>Здесь появятся ваши записи</h3>
           <p>Загрузите файл или запишите первую встречу.</p>
-          {config.mock && (
-            <button className="text-button" onClick={() => void seed()}>
-              Открыть демонстрационные записи
-            </button>
-          )}
         </div>
       </div>
     );

@@ -44,8 +44,6 @@ const codeMessages: Record<string, string> = {
     "Не удалось обработать аудио. Попробуйте загрузить другой файл.",
   EXPORT_FAILED:
     "Не удалось подготовить документ. Попробуйте скачать его ещё раз.",
-  MOCK_EXPORT_UNAVAILABLE:
-    "В деморежиме экспорт недоступен. Для скачивания подключите Java API.",
 };
 
 export function errorMessage(error: unknown): string {

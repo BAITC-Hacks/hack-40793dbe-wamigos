@@ -1,7 +1,7 @@
 import { config } from "./config";
 import type { MeetingLink } from "./types";
 
-const key = config.mock ? config.mockStorageKey : config.storageKey;
+const key = config.storageKey;
 export function isExpired(link: Pick<MeetingLink, "expiresAt">): boolean {
   return link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now();
 }

@@ -31,14 +31,10 @@ Tokens are stored alongside the last five meeting links in localStorage. Audio a
 transcripts are not persisted. Clearing browser data loses these links. Use HTTPS
 outside localhost for microphone access. Server-side file and duration checks are final.
 
-## Explicit demo mode
+## Data source
 
-Set `NEXT_PUBLIC_MOCK_API=true` and restart the development server, or rebuild production.
-The page displays a demo banner. In an empty list, use “Открыть демонстрационные записи”
-to see five examples with different statuses. Uploaded demo files transition through
-queue and processing to an example result. Demo mode does not analyze audio or generate
-PDF/DOCX; export explicitly reports that Java is required. Demo history is separate from
-real history. A real API error never enables demo mode.
+All meeting data, statuses and exported documents come from Java. The frontend has no
+demo data or mock transport. Without Java it shows an empty list or a connection error.
 
 ## Integration checks requiring Java
 

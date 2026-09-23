@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { config } from "@/lib/config";
 import { useMeetings } from "@/features/meetings/provider";
 import { Motif } from "./icons";
 
@@ -23,12 +22,6 @@ export function Shell({ children }: { children: ReactNode }) {
         </span>
       </header>
       <main className="main">
-        {config.mock && (
-          <div className="demo-banner">
-            Демонстрационный режим · результаты являются примерами · экспорт
-            требует Java API
-          </div>
-        )}
         {!storageAvailable && (
           <div className="notice" role="status">
             Браузер не сохраняет ссылки на записи. После закрытия страницы
