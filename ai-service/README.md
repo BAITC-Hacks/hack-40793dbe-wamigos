@@ -1,9 +1,11 @@
 # HackAlem AI Service
 
 Python service for meeting speech processing and structured fact extraction.
-Stage 2 extracts tasks and problems from RU, KK and mixed transcripts using a local LLM.
-The model produces JSON constrained by a Pydantic-generated schema. The service validates
-the JSON and its source references before returning it to Java.
+The text pipeline processes RU, KK and mixed transcripts locally: evidence-bound fact
+extraction, independent task verification, conservative deadlines, evidence-derived tags,
+and a nonempty summary. The speech baseline normalizes media with FFmpeg, transcribes it with
+faster-whisper `large-v3`, separates speakers with pyannote `community-1`, and builds the
+same transcript segment contract consumed by text intelligence.
 
 ## Start the local model
 
@@ -38,14 +40,26 @@ LOCAL_LLM_MODEL=qwen3:4b-instruct uvicorn app.main:app --host 127.0.0.1 --port 8
 Run the commands from the `ai-service` directory.
 Alternatively create `.env` using the variables shown in `.env.example`.
 
+For diarization, accept access to `pyannote/speaker-diarization-community-1` on Hugging Face
+and set `HF_TOKEN`, or set `DIARIZATION_MODEL_PATH` to an already downloaded local model.
+Speech models load only when audio analysis is invoked. The default releases them after each
+run so an 8 GB GPU can be reused by the local LLM; this trades throughput for predictable
+memory usage. Media and transcripts are not sent to a cloud provider.
+
 ## Endpoints
 
 - `GET /health`
 - `POST /dev/analyze-transcript`
+- `POST /internal/v1/analyze`
 
 `/dev/analyze-transcript` is development-only. Set `ENABLE_DEV_ENDPOINTS=false` to remove
 the route and its OpenAPI entry at startup. It accepts prepared segments and optional
 `context.startedAt` / `context.timeZone`.
+
+`/internal/v1/analyze` is the synchronous Java integration boundary. Send multipart fields
+`file`, optional `startedAt`, and optional `timeZone`. Python creates no jobs or polling state:
+the uploaded media is stored in a temporary directory, passed through the audio and text
+pipelines, returned as `MeetingAnalysisResult`, and deleted before the request completes.
 
 ```bash
 curl -sS http://127.0.0.1:8000/dev/analyze-transcript \
@@ -54,28 +68,57 @@ curl -sS http://127.0.0.1:8000/dev/analyze-transcript \
 ```
 
 The camelCase response keeps `durationMs`, `summary`, `speakers`, `segments`, `tasks`,
-`problems`, and `diagnostics`. Every task and problem has nonempty `sourceSegmentIds`
-pointing to original segments. Duplicate fact IDs and unknown source references are
-rejected. Speaker IDs cannot be used as person names. Exact repeated action text for the
+`problems`, and `diagnostics`. Every LLM candidate must include exact `evidenceQuotes`.
+`EvidenceBinder` finds each quote in exactly one transcript segment, corrects a wrong source
+ID, and excludes missing or ambiguous evidence. Published tasks and problems have nonempty
+`sourceSegmentIds` pointing to original segments. Duplicate fact IDs are rejected. Speaker
+IDs cannot be used as person names. Exact repeated action text for the
 same assignee triggers repair so confirmations and deadline corrections can be consolidated.
 Distinct work with the same assignee must state its different scope in the task text.
 Source text, speaker IDs and timestamps are preserved; `TASK` / `PROBLEM` tags
 are rebuilt from extracted references, including both tags on the same segment.
 
-This stage does not build a resolved speaker directory, normalize dates or generate summaries.
-`speakers[].name`, `tasks[].assignerName`, `problems[].reportedBy` and `tasks[].deadlineDate`
-remain null; `summary` remains empty. Internal extraction schemas enforce null for the
-speaker-dependent fields until verified speaker attribution is implemented. The public
-contract keeps those fields available for that later stage. `assigneeName` is extracted
-for explicitly named responsible people or departments; `deadlineRaw` preserves the stated
-deadline. Context is passed to extraction without
-guessing the meeting date or the server's timezone. Extracted facts still require the
-later independent verification stage; diagnostics report this explicitly.
+Textual speaker resolution accepts explicit name labels and self-introductions. Conflicting
+or missing identity stays null; an addressee is never automatically the speaker. Conversational
+identity inference from diarized audio remains part of the speech stage. No participant-directory
+input was added. Assigner/reporter names are recomputed from resolved speakers in bound evidence.
+Problems use exact source excerpts so numeric meaning cannot change through paraphrasing.
+
+The verifier receives all candidates and the complete transcript in one batch. Only
+`CONFIRMED` and evidence-validated `CORRECTED` tasks are published. `REJECTED` and
+`REVIEW_REQUIRED` candidates are counted in diagnostics, excluded from TASK tags, and never
+sent to summary generation. Missing/duplicate verdicts or ungrounded corrections fail closed
+after one repair. Verification is model-based, not a mathematical guarantee of factual accuracy.
+
+Summary generation runs after verification and deadline normalization. The LLM selects up to
+five task IDs and three problem IDs from the accepted facts; Python renders their original
+texts, assignees and raw deadlines into a string. It cannot add new facts through free-form
+summary generation. A no-facts meeting receives an explicit nonempty no-facts summary.
+
+## Deadline policy
+
+`startedAt` must have an offset; `timeZone`, when present, must be a valid IANA zone.
+The zone determines the local meeting date; otherwise the supplied offset is used.
+Upload time, today's date and the server timezone are never substituted.
+
+- Explicit full calendar dates work without meeting context.
+- Dates without a year use the meeting's year only; no guessed next-year rollover.
+- `до пятницы / к среде / жұмаға дейін`: nearest named weekday on or after the meeting date.
+- `завтра / ертеңге дейін`, `через две недели / за две недели / екі апта ішінде`:
+  calendar day/week offsets from that date.
+- `до конца недели / апта соңына дейін`, `на этой неделе`, `келесі аптада` and
+  event-based wording such as `после совещания` stay in `deadlineRaw` with a null date.
+- Event-based, unsupported, impossible or context-dependent ambiguous deadlines remain raw/null.
+  Missing deadlines have both fields null. Workday/holiday calendars are not inferred.
 
 ## Pipeline and failures
 
 The HTTP route calls `MeetingPipeline.analyze_transcript(segments, context)`.
-The pipeline depends on `MeetingFactsExtractor`, which uses the `LlmProvider` protocol.
+The pipeline orchestrates speaker resolution, `MeetingFactsExtractor`, `EvidenceBinder`,
+deterministic speaker attribution, `DeadlineRawValidator`, `TaskVerifier`,
+`DeadlineNormalizer`, `SegmentTagger` and `SummaryGenerator`.
+`StructuredLlm` centralizes schema parsing, semantic validation and one repair per stage
+above the unchanged `LlmProvider` interface.
 `LocalLlmProvider` is the sole implementation and uses an asynchronous HTTPX client with
 `POST /v1/chat/completions` and `response_format.type=json_schema`. The configured base
 URL must end in `/v1`; it is the only inference destination. Redirects and environment
@@ -93,7 +136,7 @@ the configured character limit are rejected, not truncated; long-meeting chunkin
 | 422 | FastAPI validation error | Invalid input segments, IDs, timestamps or context. |
 | 502 | `LLM_REQUEST_REJECTED` | Runtime rejected the inference request or schema. |
 | 502 | `LLM_INVALID_RESPONSE` | Invalid, refused or truncated completion envelope. |
-| 502 | `LLM_INVALID_FACTS` | Model facts still invalid after one repair attempt. |
+| 502 | `LLM_INVALID_FACTS` | Extraction, verifier or summary selection still invalid after one repair. |
 | 503 | `LLM_NOT_CONFIGURED` | No local model is configured. |
 | 503 | `LLM_MODEL_NOT_FOUND` | Model or local endpoint not found. |
 | 503 | `LLM_UNAVAILABLE` | Runtime unreachable, overloaded or failing. |
@@ -107,11 +150,13 @@ This checks model availability, not extraction quality or model warmup.
 
 Use one Uvicorn worker. At most one analysis runs per process; additional calls fail fast
 instead of creating a job queue. Job lifecycle, scheduling and retries belong to Java.
-Future blocking Whisper/pyannote/PyTorch inference must run in a controlled worker/thread
-outside the event loop. Declaring an inference function `async` does not make it nonblocking.
+Blocking FFmpeg, faster-whisper and pyannote/PyTorch inference runs through one controlled
+`asyncio.to_thread` call and a concurrency-one lock; declaring inference `async` alone would
+not make it nonblocking.
 
-The production integration endpoint will be `POST /internal/v1/analyze`. Audio ingestion,
-speech processing, independent verification, date normalization and summaries are later stages.
+`AudioMeetingPipeline.analyze_file` now connects speech segments to the text pipeline.
+The production `POST /internal/v1/analyze` upload/job contract, Java integration and full
+Front↔Back↔AI happy path intentionally remain the next integration stage.
 
 ## Local LLM configuration
 
@@ -122,9 +167,39 @@ LOCAL_LLM_TIMEOUT_SECONDS=180
 LOCAL_LLM_HEALTH_TIMEOUT_SECONDS=3
 LOCAL_LLM_MAX_TOKENS=4096
 LOCAL_LLM_MAX_INPUT_CHARS=20000
+ASR_MODEL=large-v3
+ASR_DEVICE=cuda
+ASR_COMPUTE_TYPE=float16
+DIARIZATION_MODEL=pyannote/speaker-diarization-community-1
+DIARIZATION_DEVICE=cuda
+HF_TOKEN=your-read-token
+SPEECH_RELEASE_MODELS_AFTER_RUN=true
 ```
 
-The request timeout bounds each inference attempt, including network access; a repair may
-use a second attempt. `MAX_INPUT_CHARS` limits the serialized meeting payload and is not a
+The request timeout bounds each inference attempt, including network access. Each of the three
+LLM stages may use one repair (at most six inference calls in total); transport errors are
+not retried. Diagnostics expose per-stage repair counts and elapsed times.
+`MAX_INPUT_CHARS` limits the serialized meeting payload and is not a
 token count. Size the runtime context for the input, schema, prompt, and output together.
 Changing local runtime/model requires support for JSON-schema responses and `/v1/models`.
+
+## Reproducible checks
+
+No extra test dependencies are required:
+
+```bash
+python -m unittest discover -s tests -v
+python -m evaluation.run_protocols
+python -m evaluation.run_edge_cases
+python -m evaluation.run_protocols --model qwen2.5:7b-instruct
+```
+
+The protocol evaluation calls the REAL configured local model and exits nonzero for missing
+expected task groups, incorrect dates/assigners/reporters, malformed evidence or provider errors.
+It covers the complete dialogue of Protocols 1 and 2, not snippets. The reference answer tables
+and summaries are never included in the model input. Source speaker headings are retained as
+text labels; timestamps and the September 23, 2026 context are explicitly synthetic evaluation
+anchors, not measured audio times or asserted meeting dates. Fixtures link to the source files.
+Phrase-based acceptance checks complement manual reading; they are not general precision/F1
+measurements or proof of unseen-data accuracy. Do not call a model fully validated based only
+on these two documents.

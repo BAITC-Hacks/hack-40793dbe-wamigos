@@ -1,8 +1,17 @@
 from datetime import date, datetime
 from enum import Enum
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 
@@ -21,8 +30,27 @@ class SegmentTag(str, Enum):
 
 
 class MeetingContext(ApiModel):
-    started_at: datetime | None = None
+    started_at: AwareDatetime | None = None
     time_zone: str | None = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator("started_at", mode="before")
+    @classmethod
+    def validate_started_at(cls, value: str | datetime | None) -> datetime | None:
+        if isinstance(value, str):
+            return datetime.fromisoformat(value)
+        if value is not None and not isinstance(value, datetime):
+            raise ValueError("startedAt must be an ISO-8601 datetime with offset")
+        return value
+
+    @field_validator("time_zone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                ZoneInfo(value)
+            except (ZoneInfoNotFoundError, ValueError) as error:
+                raise ValueError("timeZone must be an IANA timezone") from error
+        return value
 
 
 class Speaker(ApiModel):
@@ -40,8 +68,8 @@ class Segment(ApiModel):
 
     @model_validator(mode="after")
     def validate_time_range(self) -> "Segment":
-        if self.end_ms < self.start_ms:
-            raise ValueError("end_ms must be greater than or equal to start_ms")
+        if self.end_ms <= self.start_ms:
+            raise ValueError("end_ms must be greater than start_ms")
         return self
 
 
@@ -81,7 +109,12 @@ class Diagnostics(ApiModel):
     processing_time_ms: int = Field(default=0, ge=0)
     llm_model: str | None = None
     prompt_version: str | None = None
-    repair_attempts: int = Field(default=0, ge=0, le=1)
+    repair_attempts: int = Field(default=0, ge=0)
+    stage_repair_attempts: dict[str, int] = Field(default_factory=dict)
+    verification_counts: dict[str, int] = Field(default_factory=dict)
+    evidence_binding_counts: dict[str, int] = Field(default_factory=dict)
+    invalid_deadline_raw_discarded: int = Field(default=0, ge=0)
+    stage_time_ms: dict[str, int] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -119,7 +152,7 @@ def validate_fact_sources(
 
 class MeetingAnalysisResult(ApiModel):
     duration_ms: int = Field(ge=0)
-    summary: str
+    summary: str = Field(min_length=1)
     speakers: list[Speaker]
     segments: TranscriptSegments
     tasks: list[Task]
@@ -129,6 +162,25 @@ class MeetingAnalysisResult(ApiModel):
     @model_validator(mode="after")
     def validate_source_segment_ids(self) -> "MeetingAnalysisResult":
         validate_fact_sources(self.tasks, self.problems, self.segments)
+        speaker_ids = [speaker.id for speaker in self.speakers]
+        if len(speaker_ids) != len(set(speaker_ids)):
+            raise ValueError("speaker ids must be unique")
+        if any(
+            segment.speaker_id is not None and segment.speaker_id not in speaker_ids
+            for segment in self.segments
+        ):
+            raise ValueError("unknown speaker id")
+        if self.segments != sorted(
+            self.segments, key=lambda segment: (segment.start_ms, segment.end_ms)
+        ):
+            raise ValueError("segments must be sorted by time")
+        if self.duration_ms < max(segment.end_ms for segment in self.segments):
+            raise ValueError("durationMs must cover all segments")
+        if any(
+            task.deadline_date is not None and task.deadline_raw is None
+            for task in self.tasks
+        ):
+            raise ValueError("deadlineDate requires deadlineRaw")
         return self
 
 
