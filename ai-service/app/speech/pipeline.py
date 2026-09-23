@@ -44,7 +44,7 @@ class SpeechPipeline:
                 if self._release_models_after_run:
                     self._asr.release()
                     self._free_cuda_memory()
-                turns = self._diarizer.diarize(normalized)
+                turns = self._diarizer.diarize(normalized, asr_segments)
                 if not turns:
                     raise ServiceError(
                         "DIARIZATION_EMPTY", "No speaker turns were detected."

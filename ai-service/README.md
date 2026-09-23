@@ -4,8 +4,8 @@ Python service for meeting speech processing and structured fact extraction.
 The text pipeline processes RU, KK and mixed transcripts locally: evidence-bound fact
 extraction, independent task verification, conservative deadlines, evidence-derived tags,
 and a nonempty summary. The speech baseline normalizes media with FFmpeg, transcribes it with
-faster-whisper `large-v3`, separates speakers with pyannote `community-1`, and builds the
-same transcript segment contract consumed by text intelligence.
+faster-whisper `large-v3`, separates speakers with public SpeechBrain ECAPA embeddings and
+local clustering, and builds the same transcript segment contract consumed by text intelligence.
 
 ## Start the local model
 
@@ -34,17 +34,25 @@ Use Python 3.11 or 3.12.
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+export HF_HUB_DISABLE_XET=1
+export LD_LIBRARY_PATH="$VIRTUAL_ENV/lib/python3.12/site-packages/nvidia/cublas/lib:$VIRTUAL_ENV/lib/python3.12/site-packages/nvidia/cudnn/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 LOCAL_LLM_MODEL=qwen3:4b-instruct uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
 Run the commands from the `ai-service` directory.
 Alternatively create `.env` using the variables shown in `.env.example`.
 
-For diarization, accept access to `pyannote/speaker-diarization-community-1` on Hugging Face
-and set `HF_TOKEN`, or set `DIARIZATION_MODEL_PATH` to an already downloaded local model.
+The default `speechbrain/spkrec-ecapa-voxceleb` speaker model is public and downloads without
+`HF_TOKEN`. `DIARIZATION_MODEL_PATH` can point to a compatible local SpeechBrain model.
 Speech models load only when audio analysis is invoked. The default releases them after each
 run so an 8 GB GPU can be reused by the local LLM; this trades throughput for predictable
 memory usage. Media and transcripts are not sent to a cloud provider.
+
+For the complete Docker setup, copy the root `.env.example` to `.env` and run
+`docker compose up --build --wait` from the repository root. Compose starts PostgreSQL, Ollama,
+pulls the configured Qwen model, starts this service with one Uvicorn worker, then starts Java
+and the frontend. `HF_HUB_DISABLE_XET=1` is set in the container, and downloaded Hugging Face
+models are preserved in a named volume.
 
 ## Endpoints
 
@@ -150,13 +158,13 @@ This checks model availability, not extraction quality or model warmup.
 
 Use one Uvicorn worker. At most one analysis runs per process; additional calls fail fast
 instead of creating a job queue. Job lifecycle, scheduling and retries belong to Java.
-Blocking FFmpeg, faster-whisper and pyannote/PyTorch inference runs through one controlled
+Blocking FFmpeg, faster-whisper and ECAPA/PyTorch inference runs through one controlled
 `asyncio.to_thread` call and a concurrency-one lock; declaring inference `async` alone would
 not make it nonblocking.
 
-`AudioMeetingPipeline.analyze_file` now connects speech segments to the text pipeline.
-The production `POST /internal/v1/analyze` upload/job contract, Java integration and full
-Front↔Back↔AI happy path intentionally remain the next integration stage.
+`AudioMeetingPipeline.analyze_file` connects speech segments to the text pipeline. The
+production `POST /internal/v1/analyze` endpoint is the synchronous Java integration boundary;
+Java owns upload storage, job state and result persistence.
 
 ## Local LLM configuration
 
@@ -170,9 +178,10 @@ LOCAL_LLM_MAX_INPUT_CHARS=20000
 ASR_MODEL=large-v3
 ASR_DEVICE=cuda
 ASR_COMPUTE_TYPE=float16
-DIARIZATION_MODEL=pyannote/speaker-diarization-community-1
+DIARIZATION_MODEL=speechbrain/spkrec-ecapa-voxceleb
 DIARIZATION_DEVICE=cuda
-HF_TOKEN=your-read-token
+DIARIZATION_SIMILARITY_THRESHOLD=0.55
+DIARIZATION_MAX_SPEAKERS=8
 SPEECH_RELEASE_MODELS_AFTER_RUN=true
 ```
 

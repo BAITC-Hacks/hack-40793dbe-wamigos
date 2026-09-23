@@ -31,14 +31,22 @@ class Settings(BaseSettings):
     asr_device: str = Field(default="cuda", alias="ASR_DEVICE")
     asr_compute_type: str = Field(default="float16", alias="ASR_COMPUTE_TYPE")
     diarization_model: str = Field(
-        default="pyannote/speaker-diarization-community-1",
+        default="speechbrain/spkrec-ecapa-voxceleb",
         alias="DIARIZATION_MODEL",
     )
     diarization_model_path: str | None = Field(
         default=None, alias="DIARIZATION_MODEL_PATH"
     )
     diarization_device: str = Field(default="cuda", alias="DIARIZATION_DEVICE")
-    hf_token: str | None = Field(default=None, alias="HF_TOKEN")
+    diarization_similarity_threshold: float = Field(
+        default=0.55,
+        ge=-1,
+        le=1,
+        alias="DIARIZATION_SIMILARITY_THRESHOLD",
+    )
+    diarization_max_speakers: int = Field(
+        default=8, ge=1, le=32, alias="DIARIZATION_MAX_SPEAKERS"
+    )
     speech_release_models_after_run: bool = Field(
         default=True, alias="SPEECH_RELEASE_MODELS_AFTER_RUN"
     )
