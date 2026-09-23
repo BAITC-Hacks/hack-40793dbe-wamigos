@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: wamigos-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/wamigos}
+    username: ${DB_USERNAME:wamigos}
+    password: ${DB_PASSWORD:wamigos}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  servlet:
+    multipart:
+      max-file-size: ${APP_MAX_FILE_SIZE:500MB}
+      max-request-size: ${APP_MAX_REQUEST_SIZE:501MB}
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: always
+
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  storage:
+    root: ${APP_STORAGE_ROOT:./data/meetings}
+  upload:
+    max-bytes: ${APP_UPLOAD_MAX_BYTES:524288000}
+    max-duration: ${APP_UPLOAD_MAX_DURATION:PT60M}
+  queue:
+    capacity: ${APP_QUEUE_CAPACITY:20}
+    poll-interval: ${APP_QUEUE_POLL_INTERVAL:PT1S}
+  processing:
+    worker-enabled: ${APP_PROCESSING_WORKER_ENABLED:true}
+    timeout: ${APP_PROCESSING_TIMEOUT:PT30M}
+    timeout-check-interval: ${APP_TIMEOUT_CHECK_INTERVAL:PT1M}
+    startup-recovery-enabled: ${APP_STARTUP_RECOVERY_ENABLED:true}
+  cleanup:
+    retention: ${APP_RETENTION:PT24H}
+    interval: ${APP_CLEANUP_INTERVAL:PT10M}
+  ai:
+    mode: ${APP_AI_MODE:mock}
+    mock-delay: ${APP_AI_MOCK_DELAY:PT0.2S}
+    mock-force-failure: ${APP_AI_MOCK_FORCE_FAILURE:false}
+  cors:
+    allowed-origin: ${APP_FRONTEND_ORIGIN:http://localhost:3000}
+  export:
+    font-path: ${APP_EXPORT_FONT_PATH:/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf}
