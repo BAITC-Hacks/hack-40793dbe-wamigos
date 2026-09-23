@@ -29,6 +29,20 @@ class MeetingResultValidatorTest {
     }
 
     @Test
+    void acceptsZeroDurationResult() {
+        MeetingResultResponse result = MeetingResultResponse.builder()
+                .durationMs(0L)
+                .summary("")
+                .speakers(List.of())
+                .segments(List.of())
+                .tasks(List.of())
+                .problems(List.of())
+                .build();
+
+        assertThatCode(() -> validator.validate(result)).doesNotThrowAnyException();
+    }
+
+    @Test
     void rejectsUnknownSourceSegment() {
         MeetingResultResponse result = MeetingResultResponse.builder()
                 .durationMs(1_000L)

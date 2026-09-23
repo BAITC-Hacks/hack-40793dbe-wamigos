@@ -103,3 +103,14 @@ Changed:
 
 Reason:
 - Let judges independently launch and verify the current application without installing language runtimes or mistaking demonstration AI output for real speech recognition.
+
+## 2026-09-23 16:31
+
+Changed:
+- Replaced the Java runtime AI mock with a streaming multipart HTTP adapter for the Python `POST /internal/v1/analyze` contract, typed timeouts, transport DTO mapping, response validation, and Actuator health reporting.
+- Added stable media and infrastructure error mapping, preserved the existing asynchronous job lifecycle and public API, and allowed contract-valid zero-duration results in persistence.
+- Added MockWebServer and embedded-PostgreSQL coverage for success, optional metadata, media errors, HTTP failures, disconnects, timeouts, malformed JSON, invalid references, persistence, and export.
+- Updated backend and root runtime configuration and documentation for the real Python dependency while documenting the remaining Python audio-endpoint work.
+
+Reason:
+- Complete the Java side of the Python AI integration without buffering large media files or retaining a runtime fallback that could hide unavailable AI processing.

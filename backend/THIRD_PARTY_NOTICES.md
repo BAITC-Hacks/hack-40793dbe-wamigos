@@ -17,6 +17,7 @@
 | easytable | 1.0.2 | MIT | Многостраничная таблица поручений в PDF | https://github.com/vandeseer/easytable |
 | Lombok | 1.18.46 | MIT | Генерация builders и constructor boilerplate | https://github.com/projectlombok/lombok |
 | Embedded Postgres | 2.2.2 / PostgreSQL binaries 14.22 | Apache-2.0 / PostgreSQL License | Только integration tests без внешней БД | https://github.com/zonkyio/embedded-postgres |
+| MockWebServer | 4.12.0 | Apache-2.0 | Только tests HTTP-контракта Python AI service | https://github.com/square/okhttp |
 | PostgreSQL container | 17.6-alpine | PostgreSQL License | Локальная runtime DB | https://hub.docker.com/_/postgres |
 | Eclipse Temurin JRE | 21 | GPL-2.0-with-classpath-exception | Runtime Docker image | https://github.com/adoptium/temurin-build |
 | DejaVu Sans | 2.37, системный пакет | Bitstream Vera and DejaVu licenses | Встраиваемый PDF-шрифт с кириллицей и казахскими буквами | https://dejavu-fonts.github.io |

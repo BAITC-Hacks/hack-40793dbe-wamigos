@@ -12,6 +12,8 @@ import kz.hackalem.wamigos.config.StorageProperties;
 import kz.hackalem.wamigos.error.StorageException;
 import kz.hackalem.wamigos.storage.port.StoragePort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -45,7 +47,7 @@ public class LocalStorageAdapter implements StoragePort {
     @Override
     public String store(InputStream inputStream, String extension) {
         String key = UUID.randomUUID() + extension;
-        Path target = resolve(key);
+        Path target = resolvePath(key);
         try {
             Files.copy(inputStream, target);
             setPermissions(target, PRIVATE_FILE_PERMISSIONS);
@@ -57,18 +59,18 @@ public class LocalStorageAdapter implements StoragePort {
     }
 
     @Override
-    public Path resolve(String storageKey) {
-        Path resolved = root.resolve(storageKey).normalize();
-        if (!resolved.startsWith(root)) {
-            throw new StorageException("Некорректный путь к записи.");
+    public Resource load(String storageKey) {
+        Path source = resolvePath(storageKey);
+        if (!Files.isRegularFile(source)) {
+            throw new StorageException("Исходная запись недоступна в хранилище.");
         }
-        return resolved;
+        return new FileSystemResource(source);
     }
 
     @Override
     public void delete(String storageKey) {
         try {
-            Files.deleteIfExists(resolve(storageKey));
+            Files.deleteIfExists(resolvePath(storageKey));
         } catch (IOException exception) {
             throw new StorageException("Не удалось удалить запись.", exception);
         }
@@ -78,6 +80,14 @@ public class LocalStorageAdapter implements StoragePort {
         if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
             Files.setPosixFilePermissions(path, permissions);
         }
+    }
+
+    private Path resolvePath(String storageKey) {
+        Path resolved = root.resolve(storageKey).normalize();
+        if (!resolved.startsWith(root)) {
+            throw new StorageException("Некорректный путь к записи.");
+        }
+        return resolved;
     }
 
     private void deleteQuietly(Path path) {

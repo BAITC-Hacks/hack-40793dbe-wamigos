@@ -9,7 +9,6 @@ import kz.hackalem.wamigos.analysis.mapper.MeetingAnalysisResultMapper;
 import kz.hackalem.wamigos.analysis.port.MeetingAnalysisException;
 import kz.hackalem.wamigos.analysis.port.MeetingAnalysisPort;
 import kz.hackalem.wamigos.config.CleanupProperties;
-import kz.hackalem.wamigos.config.UploadProperties;
 import kz.hackalem.wamigos.error.ErrorCode;
 import kz.hackalem.wamigos.error.StorageException;
 import kz.hackalem.wamigos.meeting.domain.ProcessingStage;
@@ -17,7 +16,6 @@ import kz.hackalem.wamigos.meeting.dto.MeetingJobDto;
 import kz.hackalem.wamigos.meeting.dto.MeetingResultResponse;
 import kz.hackalem.wamigos.meeting.service.MeetingJobService;
 import kz.hackalem.wamigos.meeting.validation.MeetingResultValidator;
-import kz.hackalem.wamigos.storage.port.StoragePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,8 +32,6 @@ public class MeetingProcessingWorker {
     private final MeetingAnalysisPort meetingAnalysisPort;
     private final MeetingAnalysisResultMapper meetingAnalysisResultMapper;
     private final MeetingResultValidator meetingResultValidator;
-    private final StoragePort storagePort;
-    private final UploadProperties uploadProperties;
     private final CleanupProperties cleanupProperties;
     private final Clock clock;
 
@@ -52,13 +48,10 @@ public class MeetingProcessingWorker {
             }
             MeetingAnalysisOutput output = meetingAnalysisPort.analyze(MeetingAnalysisRequest.builder()
                     .meetingId(job.id())
-                    .sourcePath(storagePort.resolve(job.sourcePath()))
+                    .storageKey(job.sourcePath())
                     .contentType(job.contentType())
-                    .sizeBytes(job.sizeBytes())
-                    .source(job.source())
                     .startedAt(job.startedAt())
                     .timeZone(job.timeZone())
-                    .maximumDuration(uploadProperties.maxDuration())
                     .build());
             MeetingResultResponse result = meetingAnalysisResultMapper.toPublicResult(output);
             meetingResultValidator.validate(result);
