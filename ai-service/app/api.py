@@ -16,6 +16,7 @@ from app.schemas import (
     ErrorResponse,
     HealthResponse,
     MeetingAnalysisResult,
+    MeetingContext,
 )
 from app.service_error import ServiceError
 

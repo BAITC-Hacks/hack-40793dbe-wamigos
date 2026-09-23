@@ -11,47 +11,43 @@
 - Интерфейс: Next.js, React, TypeScript; запись микрофона через MediaRecorder.
 - API и фоновые задания: Java 21, Spring Boot, PostgreSQL, Flyway.
 - Документы: серверный экспорт PDF и DOCX.
-- AI-модуль: Python, FastAPI, локальный Ollama; Java backend подключён к production HTTP-контракту, а Python пока содержит отдельный текстовый pipeline без обработки аудио.
-- Запуск: Docker Compose, отдельные контейнеры frontend/backend/PostgreSQL и постоянные volumes.
+- AI-модуль: Python, FastAPI, FFmpeg, faster-whisper `large-v3`, публичная ECAPA speaker-embedding модель и локальный Ollama/Qwen.
+- Запуск: Docker Compose, отдельные контейнеры frontend/backend/AI/Ollama/PostgreSQL и постоянные volumes моделей и данных.
 
 ## Запуск для жюри
 
-Нужны Git и работающий Docker с Compose v2 и Linux-контейнерами (на Windows/macOS — Docker Desktop). Локальные Java, Maven, Node.js и PostgreSQL не нужны.
-
-В корне скачанного репозитория выполните одну команду:
+Нужны Git, Docker с Compose v2, NVIDIA GPU и установленный NVIDIA Container Toolkit. Локальные Java, Maven, Node.js, Python, PostgreSQL и `HF_TOKEN` не нужны.
 
 ```sh
+cp .env.example .env
 docker compose up --build --wait
 ```
 
-Откройте **[http://localhost:3000](http://localhost:3000)**. Первый запуск скачивает образы и зависимости и может занять несколько минут. Команда завершится после готовности базы, API и интерфейса; сервисы продолжат работать в фоне.
+Откройте **[http://localhost:3000](http://localhost:3000)**. Первый запуск собирает тяжёлый Python-образ, загружает Qwen, а при первом анализе — модели Whisper и ECAPA, поэтому он заметно дольше последующих. Публичные веса скачиваются без токена и сохраняются в Docker volumes. Содержимое встреч обрабатывается локально; cloud fallback отсутствует.
 
 Если репозиторий ещё не скачан:
 
 ```sh
 git clone --branch develop https://github.com/BAITC-Hacks/hack-40793dbe-wamigos.git
 cd hack-40793dbe-wamigos
+cp .env.example .env
 docker compose up --build --wait
 ```
 
 Для приватного репозитория нужен доступ GitHub. Для первоначальной сборки нужен интернет. Содержимое встреч не отправляется внешним AI API.
 
-## Текущее состояние AI
+## Как соединены сервисы
 
-**Java отправляет загруженный media-файл в `POST /internal/v1/analyze`; runtime mock и fallback удалены.** Пока Python не реализует этот production endpoint, задание штатно завершится `FAILED` с `AI_PROCESSING_FAILED`, а остальной backend продолжит работать.
+Frontend отправляет media только в Java API. Java сохраняет исходный файл и создаёт задание в PostgreSQL, а worker потоково отправляет его в синхронный `POST /internal/v1/analyze` Python-сервиса. Python выполняет FFmpeg → Whisper → ECAPA embeddings/clustering → speaker resolution → локальный Qwen и возвращает готовый результат. Java проверяет ссылки и интервалы, сохраняет результат и формирует PDF/DOCX.
 
-Frontend не содержит mock-данных. Файл отправляется настоящему Java API; статусы, результат и PDF/DOCX приходят с backend. PostgreSQL, секретные токены доступа и экспорт работают на сервере.
-
-В `ai-service/` реализовано извлечение поручений и проблем из готового текста через локальный Ollama. Пока доступен только `/dev/analyze-transcript`; обработка аудио `/internal/v1/analyze` ещё не реализована на Python-стороне. Поэтому Python и Ollama не входят в основную команду запуска. Их отдельный запуск описан в [ai-service/README.md](ai-service/README.md).
-
-Следующий этап — реализовать Python-обработку аудио по уже подключённому Java HTTP-контракту и включить AI-сервис в общий запуск.
+Python не создаёт собственных jobs. Runtime mock, hardcoded result и cloud fallback отсутствуют. Если AI недоступен или вернул некорректный ответ, конкретное Java-задание переходит в `FAILED`.
 
 ## Проверка сценария
 
 1. Выберите MP3/MP4 или нажмите «Начать запись» и разрешите микрофон.
 2. Дождитесь окончания загрузки: до принятия файла сервером вкладку закрывать нельзя.
 3. Java обработает запись в фоне, готовый протокол откроется автоматически.
-4. Проверьте расшифровку, поручения и проблемы. Сейчас их содержание демонстрационное независимо от аудио.
+4. Проверьте реальную расшифровку, говорящих, поручения, сроки, проблемы и summary.
 5. Нажмите PDF или Word: Java сформирует документ для скачивания.
 6. Откройте «Все записи» или перезагрузите страницу: последние пять ссылок остаются в этом браузере.
 
@@ -65,16 +61,28 @@ Frontend не содержит mock-данных. Файл отправляет�
 | Java API | http://localhost:8081 |
 | Swagger | http://localhost:8081/swagger-ui.html |
 | Проверка Java | http://localhost:8081/actuator/health |
+| Проверка Python AI | http://localhost:8000/health |
 
-PostgreSQL доступен только внутри Docker-сети. База и исходные файлы хранятся в отдельных Docker volumes. Приложение опубликовано только на локальном компьютере.
+PostgreSQL и Ollama доступны только внутри Docker-сети. Java обращается к Python по `http://ai-service:8000`, Python к Ollama — по `http://ollama:11434/v1`. База, исходные файлы и веса моделей хранятся в отдельных Docker volumes. Публичные порты привязаны только к локальному компьютеру.
 
 ```sh
 docker compose ps
-docker compose logs --tail=100 backend frontend
+docker compose logs --tail=100 backend ai-service ollama frontend
 docker compose down
 ```
 
 `down` сохраняет данные. Повторный запуск — `docker compose up --build --wait`. Для намеренного полного сброса есть `docker compose down --volumes`: эта команда безвозвратно удаляет базу и записи.
+
+## Если AI не готов
+
+- `DIARIZATION_UNAVAILABLE`: проверьте интернет при первой анонимной загрузке публичной ECAPA-модели и volume `huggingface-cache`.
+- Ошибка доступа к GPU: проверьте `nvidia-smi` на хосте и настройку NVIDIA Container Toolkit для Docker.
+- Долгий первый анализ: Whisper и ECAPA загружаются лениво; следите за `docker compose logs -f ai-service`.
+- Ошибка Ollama/model not found: проверьте `docker compose logs ollama ollama-model`; сервис загрузки модели должен завершиться с кодом 0.
+- Python `422`: media не декодируется, не содержит аудиодорожку или нарушает ограничения входа.
+- Java `AI_PROCESSING_FAILED`: смотрите безопасный код ошибки в логах backend и соответствующую запись в логах AI; fallback намеренно не выполняется.
+
+Для локального запуска Python вне Docker оставьте Java URL `http://localhost:8000`. В общем compose URL должен оставаться `http://ai-service:8000`: `localhost` внутри backend-контейнера указывает на сам backend.
 
 ## Если порты заняты
 
@@ -85,6 +93,7 @@ FRONTEND_PORT=3300
 FRONTEND_ORIGIN=http://localhost:3300
 BACKEND_PORT=8181
 API_PUBLIC_URL=http://localhost:8181
+AI_PORT=8100
 ```
 
 Повторите команду запуска и откройте `http://localhost:3300`. `API_PUBLIC_URL` используется браузером и встраивается при сборке, поэтому после изменения необходим `--build`. `FRONTEND_ORIGIN` задаёт разрешённый CORS origin Java. Локальная frontend `.env.local` не включается в Docker-образ.

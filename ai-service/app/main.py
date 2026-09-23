@@ -48,8 +48,9 @@ async def lifespan(application: FastAPI):
                 SpeakerDiarizer(
                     settings.diarization_model,
                     settings.diarization_model_path or None,
-                    settings.hf_token,
                     settings.diarization_device,
+                    settings.diarization_similarity_threshold,
+                    settings.diarization_max_speakers,
                 ),
                 settings.speech_release_models_after_run,
             ),
