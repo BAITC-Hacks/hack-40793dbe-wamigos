@@ -74,3 +74,22 @@ Changed:
 
 Reason:
 - Connect the frontend data flow to the complete meeting workflow for browser verification.
+
+## 2026-09-23 15:38
+
+Changed:
+- Matched frontend error messages to the merged Java ErrorCode contract and corrected recording button contrast.
+- Added expiry cleanup for open pages, guarded request cleanup and microphone-disconnection handling.
+- Formatted frontend sources and disabled generated Next.js agent files and development indicators.
+
+Reason:
+- Complete browser review fixes and prepare integration with the merged backend; production build and TypeScript checks pass.
+
+## 2026-09-23 15:46
+
+Changed:
+- Removed all frontend demo data, mock transport, mock configuration, seed actions and demo styles at the team's request.
+- Updated frontend documentation and project rules to require Java API data exclusively.
+
+Reason:
+- Integrate directly with the running Java backend while its separate AI adapter remains under development.

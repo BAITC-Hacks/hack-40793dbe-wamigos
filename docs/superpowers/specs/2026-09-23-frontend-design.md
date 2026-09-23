@@ -60,9 +60,9 @@ Frontend создаётся на Next.js с App Router и TypeScript. Стили
 - `features/recording/` содержит выбор MIME, жизненный цикл `MediaRecorder`, таймер и освобождение tracks.
 - `lib/api/` содержит DTO Java API, problem details и единственную точку сетевого доступа.
 - `lib/storage/` хранит максимум пять ссылок `{id, accessToken, title, createdAt, expiresAt}` и переживает недоступность `localStorage`.
-- `lib/mock/` реализует явно включаемый transport с теми же DTO. Он не включается после ошибки реального API и не выдаёт фиктивный экспорт за настоящий.
+- Все данные поступают из Java API; frontend не содержит демонстрационных данных или mock transport.
 
-Токены не попадают в URL или логи. API base URL читается из `NEXT_PUBLIC_API_BASE_URL`, mock — из отдельной явной настройки.
+Токены не попадают в URL или логи. API base URL читается из `NEXT_PUBLIC_API_BASE_URL`.
 
 ## Потоки данных
 
