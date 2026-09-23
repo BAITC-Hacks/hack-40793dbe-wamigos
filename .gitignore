@@ -1,0 +1,65 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+*.pid.lock
+
+# Frontend and Node.js
+node_modules/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.vite/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+.eslintcache
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Java backend and AI service
+target/
+build/
+.gradle/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Local caches and temporary files
+.cache/
+.tmp/
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# IDEs and editors
+.idea/
+.vscode/
+*.iml
+
+# Operating systems
+.DS_Store
+Thumbs.db
+Desktop.ini
