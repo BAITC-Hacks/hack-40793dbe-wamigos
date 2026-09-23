@@ -44,6 +44,15 @@ build/
 hs_err_pid*
 replay_pid*
 
+# Python AI service
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # Local caches and temporary files
 .cache/
 .tmp/
